@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Importez vos composants et pages
 import Navbar from './components/Navbar.jsx';
@@ -10,47 +10,65 @@ import ClubDetailPage from './pages/ClubDetailPage.jsx';
 import StudentProfilePage from './pages/StudentProfilePage.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import EventsPage from './pages/EventsPage.jsx';
-import Footer from './components/Footer.jsx'; // Importez le Footer
+import Footer from './components/Footer.jsx';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
-  const [user, setUser] = useState(null); // L'utilisateur connecté
+  const [user, setUser] = useState(null);
   const [selectedClub, setSelectedClub] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
 
-  // Gère la réussite de la connexion
+  // 1. Au chargement de l'app, on vérifie si un token existe déjà
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch('http://localhost:4000/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error('Session expirée');
+      })
+      .then(data => {
+        setUser(data.user);
+      })
+      .catch(() => {
+        // Si le token est invalide, on nettoie
+        localStorage.removeItem('token');
+        setUser(null);
+      });
+    }
+  }, []);
+
   const handleLoginSuccess = (loggedInUser) => {
     setUser(loggedInUser);
     setShowLoginModal(false);
-    // Redirige l'admin vers son dashboard, l'étudiant reste sur la page d'accueil
-    if (loggedInUser.role === 'admin') {
+    // Redirige l'admin vers son dashboard
+    if (loggedInUser.role === 'ADMIN') {
       setCurrentPage('admin-dashboard');
     } else {
       setCurrentPage('home');
     }
   };
 
-  // Gère le clic sur un club
   const handleClubClick = (club) => {
     setSelectedClub(club);
     setCurrentPage('club-detail');
   };
 
-  // Gère le clic sur "Rejoindre"
   const handleJoinClick = () => {
     if (user) {
-      setShowJoinModal(true); // Ouvre la modale d'adhésion si connecté
+      setShowJoinModal(true);
     } else {
-      setShowLoginModal(true); // Ouvre la modale de connexion si non connecté
+      setShowLoginModal(true);
     }
   };
 
-  // Affiche la page principale
   const renderPage = () => {
-    // Le dashboard admin a sa propre navbar, donc on ne rend pas la navbar principale
+    // Le dashboard admin a sa propre navbar
     if (currentPage === 'admin-dashboard') {
-      return <AdminDashboard user={user} />;
+      return <AdminDashboard user={user} setCurrentPage={setCurrentPage} />;
     }
 
     switch (currentPage) {
@@ -58,7 +76,7 @@ export default function App() {
         return <ClubsListPage setCurrentPage={setCurrentPage} setSelectedClub={handleClubClick} />;
       case 'club-detail':
         return <ClubDetailPage club={selectedClub} setCurrentPage={setCurrentPage} user={user} setShowJoinModal={handleJoinClick} />;
-      case 'student-profile': // Changé de 'student-dashboard'
+      case 'student-profile':
         return <StudentProfilePage user={user} />;
       case 'events':
         return <EventsPage />;
@@ -70,7 +88,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       
-      {/* La Navbar n'est pas affichée pour l'admin dashboard car il a la sienne */}
+      {/* La Navbar n'est pas affichée pour l'admin dashboard */}
       {currentPage !== 'admin-dashboard' && (
         <Navbar 
           currentPage={currentPage} 
@@ -81,17 +99,18 @@ export default function App() {
         />
       )}
       
-      {/* 'main' et 'flex-grow' permettent au contenu de pousser le footer en bas */}
+      {/* Contenu principal */}
       <main className="flex-grow">
         {renderPage()}
       </main>
 
       {/* Le Footer n'est pas affiché pour l'admin dashboard */}
       {currentPage !== 'admin-dashboard' && (
-        <Footer />
+        // 👇 C'EST ICI QUE J'AI AJOUTÉ LA FONCTION DE NAVIGATION
+        <Footer setCurrentPage={setCurrentPage} />
       )}
 
-      {/* Affichage des modales par-dessus la page */}
+      {/* Modales */}
       {showLoginModal && (
         <Modal onClose={() => setShowLoginModal(false)}>
           <LoginModal 

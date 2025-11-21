@@ -89,9 +89,19 @@ async function me(req, res, next) {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       include: {
+        // 1. On récupère les clubs acceptés
         memberships: {
           include: {
             club: true,
+          },
+        },
+        // 2. AJOUT CRUCIAL : On récupère l'historique des demandes (En attente/Refusé)
+        membershipRequests: {
+          include: {
+            club: true,
+          },
+          orderBy: {
+            createdAt: 'desc', // Pour voir les plus récentes en premier
           },
         },
       },
@@ -104,4 +114,3 @@ async function me(req, res, next) {
 }
 
 module.exports = { register, login, me };
-

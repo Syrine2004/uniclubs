@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
-import { mockAdminUser, mockStudentUser } from '../data/mockData';
+import { X, Loader } from 'lucide-react';
 
 const LoginModal = ({ onClose, setUser }) => {
   const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -11,33 +13,71 @@ const LoginModal = ({ onClose, setUser }) => {
     prenom: '',
   });
 
-  const handleSubmit = () => {
-    // Logique de soumission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    // Validation simple
     if (!formData.email || !formData.password) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      setError('Veuillez remplir tous les champs obligatoires');
+      setIsLoading(false);
       return;
     }
     if (!isLogin && (!formData.nom || !formData.prenom)) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      setError('Veuillez remplir votre nom et prénom');
+      setIsLoading(false);
       return;
     }
 
-    // Simuler la connexion
-    let userToLogin;
-    if (formData.email.includes('admin')) {
-      userToLogin = { ...mockAdminUser, ...formData };
-    } else {
-      userToLogin = { ...mockStudentUser, ...formData, prenom: formData.prenom || 'Emma', nom: formData.nom || 'Johnson' };
+    try {
+      // Choix de l'URL : on parle au vrai serveur (port 4000)
+      const endpoint = isLogin 
+        ? 'http://localhost:4000/api/auth/login' 
+        : 'http://localhost:4000/api/auth/register';
+
+      // Préparation des données
+      const payload = isLogin 
+        ? { email: formData.email, password: formData.password }
+        : { 
+            email: formData.email, 
+            password: formData.password,
+            firstName: formData.prenom, 
+            lastName: formData.nom      
+          };
+
+      // Envoi de la requête au backend
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Une erreur est survenue');
+      }
+
+      // SUCCÈS !
+      // On sauvegarde le token de sécurité
+      localStorage.setItem('token', data.token);
+      
+      // On connecte l'utilisateur dans l'app
+      setUser(data.user);
+      onClose();
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setUser(userToLogin);
-    onClose();
   };
 
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">{isLogin ? 'Welcome Back' : 'Create Account'}</h2>
+        <h2 className="text-2xl font-bold text-gray-900">{isLogin ? 'Connexion' : 'Créer un compte'}</h2>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
           <X size={24} />
         </button>
@@ -46,21 +86,28 @@ const LoginModal = ({ onClose, setUser }) => {
       {/* Onglets */}
       <div className="flex border-b border-gray-200 mb-6">
         <button 
-          onClick={() => setIsLogin(true)}
+          onClick={() => { setIsLogin(true); setError(''); }}
           className={`py-2 px-4 text-sm font-medium ${isLogin ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'}`}
         >
-          Login
+          Se connecter
         </button>
         <button 
-          onClick={() => setIsLogin(false)}
+          onClick={() => { setIsLogin(false); setError(''); }}
           className={`py-2 px-4 text-sm font-medium ${!isLogin ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'}`}
         >
-          Create Account
+          S'inscrire
         </button>
       </div>
 
+      {/* Message d'erreur */}
+      {error && (
+        <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
+          {error}
+        </div>
+      )}
+
       {/* Formulaire */}
-      <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {!isLogin && (
           <>
             <input
@@ -84,7 +131,7 @@ const LoginModal = ({ onClose, setUser }) => {
           <label className="text-sm font-medium text-gray-700">Email</label>
           <input
             type="email"
-            placeholder="Enter your email"
+            placeholder="Entrez votre email"
             value={formData.email}
             onChange={(e) => setFormData({...formData, email: e.target.value})}
             className="w-full p-3 border border-gray-300 rounded-lg mt-1 focus:ring-2 focus:ring-indigo-500"
@@ -92,45 +139,24 @@ const LoginModal = ({ onClose, setUser }) => {
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700">Password</label>
+          <label className="text-sm font-medium text-gray-700">Mot de passe</label>
           <input
             type="password"
-            placeholder="Enter your password"
+            placeholder="Entrez votre mot de passe"
             value={formData.password}
             onChange={(e) => setFormData({...formData, password: e.target.value})}
             className="w-full p-3 border border-gray-300 rounded-lg mt-1 focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
-        {isLogin && (
-          <div className="text-right">
-            <a href="#" className="text-sm text-indigo-600 hover:underline">Forgot password?</a>
-          </div>
-        )}
-
-        <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">
-          {isLogin ? 'Sign In' : "S'inscrire"}
+        <button 
+          type="submit" 
+          disabled={isLoading}
+          className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition flex justify-center items-center gap-2"
+        >
+          {isLoading && <Loader className="animate-spin w-5 h-5" />}
+          {isLogin ? 'Se connecter' : "S'inscrire"}
         </button>
-
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300" />
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Or continue with</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <button type="button" className="w-full flex items-center justify-center gap-2 py-3 border border-gray-300 rounded-lg hover:bg-gray-50">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" className="w-5 h-5" />
-            Google
-          </button>
-          <button type="button" className="w-full flex items-center justify-center gap-2 py-3 border border-gray-300 rounded-lg hover:bg-gray-50">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png" alt="Facebook" className="w-5 h-5" />
-            Facebook
-          </button>
-        </div>
       </form>
     </div>
   );

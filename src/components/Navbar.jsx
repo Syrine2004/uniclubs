@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Menu, X, User, LogOut, Calendar, Users, Home, Bell } from 'lucide-react';
+import { Menu, X, User, LogOut, Users } from 'lucide-react';
+import NotificationsMenu from './NotificationsMenu.jsx';
 
 const Navbar = ({ currentPage, setCurrentPage, user, setUser, setShowLoginModal }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     setUser(null);
+    localStorage.removeItem('token'); // On supprime le token
     setCurrentPage('home');
     setMobileMenuOpen(false);
   };
@@ -13,6 +15,13 @@ const Navbar = ({ currentPage, setCurrentPage, user, setUser, setShowLoginModal 
   const navigate = (page) => {
     setCurrentPage(page);
     setMobileMenuOpen(false);
+  };
+
+  // Fonction pour obtenir l'image : Soit l'upload, soit une image générée avec les initiales
+  const getProfileImage = () => {
+    if (user?.avatarUrl) return user.avatarUrl;
+    // Générateur d'avatar par défaut si pas de photo
+    return `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=random&color=fff`;
   };
 
   return (
@@ -39,10 +48,10 @@ const Navbar = ({ currentPage, setCurrentPage, user, setUser, setShowLoginModal 
             </button>
             {user && (
               <button 
-                onClick={() => navigate(user.role === 'admin' ? 'admin-dashboard' : 'student-profile')} 
+                onClick={() => navigate(user.role === 'ADMIN' ? 'admin-dashboard' : 'student-profile')} 
                 className={`hover:text-indigo-600 transition ${ (currentPage === 'admin-dashboard' || currentPage === 'student-profile') && 'text-indigo-600'}`}
               >
-                {user.role === 'admin' ? 'Dashboard' : 'My Profile'}
+                {user.role === 'ADMIN' ? 'Dashboard' : 'My Profile'}
               </button>
             )}
           </div>
@@ -50,13 +59,17 @@ const Navbar = ({ currentPage, setCurrentPage, user, setUser, setShowLoginModal 
           <div className="hidden md:flex items-center gap-4">
             {user ? (
               <>
-                <button className="text-gray-500 hover:text-indigo-600">
-                  <Bell size={20} />
+                <NotificationsMenu />
+                
+                <button onClick={() => navigate(user.role === 'ADMIN' ? 'admin-dashboard' : 'student-profile')}>
+                  {/* 👇 C'EST ICI QUE J'AI CORRIGÉ L'IMAGE 👇 */}
+                  <img 
+                    src={getProfileImage()} 
+                    alt="Profile" 
+                    className="w-9 h-9 rounded-full border border-gray-200 object-cover" 
+                  />
                 </button>
-                <button onClick={() => navigate(user.role === 'admin' ? 'admin-dashboard' : 'student-profile')}>
-                  <img src={user.avatar} alt="Profile" className="w-9 h-9 rounded-full" />
-                </button>
-                <button onClick={handleLogout} className="text-gray-500 hover:text-indigo-600">
+                <button onClick={handleLogout} className="text-gray-500 hover:text-indigo-600" title="Se déconnecter">
                   <LogOut size={20} />
                 </button>
               </>
@@ -80,8 +93,8 @@ const Navbar = ({ currentPage, setCurrentPage, user, setUser, setShowLoginModal 
             <button onClick={() => navigate('home')} className="block w-full text-left py-2 hover:bg-gray-100 px-2 rounded">Clubs</button>
             <button onClick={() => navigate('events')} className="block w-full text-left py-2 hover:bg-gray-100 px-2 rounded">Events</button>
             {user && (
-              <button onClick={() => navigate(user.role === 'admin' ? 'admin-dashboard' : 'student-profile')} className="block w-full text-left py-2 hover:bg-gray-100 px-2 rounded">
-                {user.role === 'admin' ? 'Dashboard' : 'My Profile'}
+              <button onClick={() => navigate(user.role === 'ADMIN' ? 'admin-dashboard' : 'student-profile')} className="block w-full text-left py-2 hover:bg-gray-100 px-2 rounded">
+                {user.role === 'ADMIN' ? 'Dashboard' : 'My Profile'}
               </button>
             )}
             {user ? (
