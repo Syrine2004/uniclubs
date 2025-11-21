@@ -1,0 +1,132 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum MembershipStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  MEMBERSHIP
+  EVENT
+  GENERAL
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+}
+
+model User {
+  id                 Int                 @id @default(autoincrement())
+  email              String              @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  role               Role                @default(STUDENT)
+  major              String?
+  phone              String?
+  studentId          String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  clubs              Club[]              @relation("ClubAdmins")
+  membershipRequests MembershipRequest[] @relation("MembershipAuthor")
+  processedRequests  MembershipRequest[] @relation("ProcessedBy")
+  memberships        ClubMember[]
+  notifications      Notification[]      @relation("NotificationRecipient")
+}
+
+model Club {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  description        String
+  category           String
+  bannerUrl          String?
+  logoUrl            String?
+  adminId            Int
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  admin              User                @relation("ClubAdmins", fields: [adminId], references: [id])
+  events             Event[]
+  membershipRequests MembershipRequest[]
+  members            ClubMember[]
+  photos             ClubPhoto[]
+}
+
+model ClubPhoto {
+  id       Int    @id @default(autoincrement())
+  url      String
+  clubId   Int
+  priority Int    @default(0)
+  club     Club   @relation(fields: [clubId], references: [id])
+}
+
+model ClubMember {
+  id       Int      @id @default(autoincrement())
+  role     String?  @default("member")
+  joinedAt DateTime @default(now())
+  userId   Int
+  clubId   Int
+  user     User     @relation(fields: [userId], references: [id])
+  club     Club     @relation(fields: [clubId], references: [id])
+
+  @@unique([userId, clubId])
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  startDate   DateTime
+  location    String
+  tag         String?
+  clubId      Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  club        Club     @relation(fields: [clubId], references: [id])
+}
+
+model MembershipRequest {
+  id            Int              @id @default(autoincrement())
+  message       String?
+  adminNote     String?
+  status        MembershipStatus @default(PENDING)
+  createdAt     DateTime         @default(now())
+  processedAt   DateTime?
+  userId        Int
+  clubId        Int
+  processedById Int?
+  user          User             @relation("MembershipAuthor", fields: [userId], references: [id])
+  club          Club             @relation(fields: [clubId], references: [id])
+  processedBy   User?            @relation("ProcessedBy", fields: [processedById], references: [id])
+}
+
+model Notification {
+  id        Int                @id @default(autoincrement())
+  title     String
+  body      String
+  type      NotificationType
+  status    NotificationStatus @default(UNREAD)
+  metadata  Json?
+  createdAt DateTime           @default(now())
+  readAt    DateTime?
+  userId    Int
+  user      User               @relation("NotificationRecipient", fields: [userId], references: [id])
+}
